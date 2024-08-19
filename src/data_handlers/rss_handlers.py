@@ -1,5 +1,5 @@
 from lxml import etree
-import src.data_handlers as data_handlers
+import data_handlers.web_data_handlers as WDHandlers
 
 #represents RSS metadata of an article
 class RSSArticleData:
@@ -43,8 +43,14 @@ def getRSSFeedData(rss_feed: etree.Element):
     for article in rss_feed.iter("item"):
         title: str = article.xpath('title/text()')[0]
         link: str = article.xpath('link/text()')[0]
-        author: str = article.xpath('creator/text()')[0]
         pubdate: str = article.xpath('pubDate/text()')[0]
+
+        #Handles case where there may not be an author
+        authors: list[str] = article.xpath('dc:creator/text()', namespaces={'dc': "http://purl.org/dc/elements/1.1/"})
+        if not authors:
+            author: str = 'Unknown'
+        else:
+            author: str = authors[0]
 
         rss_articles_data.append(RSSArticleData(title, link, author, pubdate))
 
@@ -52,20 +58,21 @@ def getRSSFeedData(rss_feed: etree.Element):
 
 #returns a list of RSS urls from a specified file line-deliminated file
 def getRSSUrls(rss_urls_filepath: str):
-    return data_handlers.getLineDelimitedData(rss_urls_filepath)
+    return WDHandlers.getLineDelimitedData(rss_urls_filepath)
 
 #gets metadata of all RSS Feeds in a line-deliminated file with urls to RSS Feeds
 def getRSSFeedsDataFromRSSUrlsFile(rss_urls_filepath: str):
-    rss_urls: list[str] = data_handlers.getRSSUrls(rss_urls_filepath)
+    rss_urls: list[str] = getRSSUrls(rss_urls_filepath)
     #parsed, but unprocessed rss feeds data
-    rss_feeds_raw: list[etree.Element]
+    rss_feeds_raw: list[etree.Element] = []
     #processed rss feeds data
-    rss_feeds_data : list[RSSFeedData]
+    rss_feeds_data : dict[RSSFeedData] = {}
 
     for rss_feed_url in rss_urls:
-        rss_feeds_raw.append(data_handlers.getXMLData(rss_feed_url))
+        rss_feeds_raw.append(WDHandlers.getXMLData(rss_feed_url))
     
     for rss_feed_raw in rss_feeds_raw:
-        rss_feeds_data.append(getRSSFeedData(rss_feed_raw))
+        rss_feed = getRSSFeedData(rss_feed_raw)
+        rss_feeds_data[rss_feed.publication_title] = rss_feed.articles_data
 
     return rss_feeds_data
